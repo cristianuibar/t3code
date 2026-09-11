@@ -78,7 +78,7 @@ import {
 import { DISCONNECTED_COMPOSER_PLACEHOLDER } from "../../composerPlaceholder";
 import {
   deriveComposerSendState,
-  getAntigravitySendBlockReason,
+  getProviderSendBlockReason,
   readFileAsDataUrl,
   resolveComposerInteractionMode,
   resolveComposerProviderSelection,
@@ -1868,7 +1868,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     projectModelSelection: activeProjectDefaultModelSelection,
     settings,
   });
-  const providerSendBlockReason = getAntigravitySendBlockReason(
+  const providerSendBlockReason = getProviderSendBlockReason(
     selectedProviderEntry?.snapshot,
     selectedModel,
   );
