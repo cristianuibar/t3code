@@ -89,7 +89,8 @@ export function isModelSelectionUnavailable(
       !provider.installed ||
       provider.auth.status === "unauthenticated" ||
       provider.availability === "unavailable" ||
-      !provider.models.some((model) => model.slug === selection.model))
+      ((driver !== "muse" || provider.status === "ready") &&
+        !provider.models.some((model) => model.slug === selection.model)))
   );
 }
 
