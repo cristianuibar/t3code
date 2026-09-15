@@ -135,6 +135,32 @@ it.layer(NodeServices.layer)("Muse session import", (it) => {
     }),
   );
 
+  it.effect("retains only the first prompt when the message budget is one", () =>
+    Effect.gen(function* () {
+      const host = historyHost([
+        {
+          events: [
+            event("u1", "userMessage", "first"),
+            event("a1", "agentMessage", "first answer"),
+            event("u2", "userMessage", "second"),
+            event("a2", "agentMessage", "second answer"),
+            modelEvent("session/tokenUsage", "muse-spark-1.3-contributor"),
+          ],
+          nextCursor: null,
+        },
+      ]);
+      const result = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const reader = yield* makeMuseSessionImport(async () => host);
+          return yield* reader.read(instance, SESSION_ID, { ...limits, messages: 1 });
+        }),
+      );
+      expect(result.messages.map((message) => message.text)).toEqual(["first"]);
+      expect(result.title).toBe("first");
+      expect(host.close).toHaveBeenCalledOnce();
+    }),
+  );
+
   it.effect(
     "folds message revisions and retractions across pages and retains a first prompt plus recent history",
     () =>
