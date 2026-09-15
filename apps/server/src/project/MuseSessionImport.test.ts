@@ -45,7 +45,7 @@ const modelEvent = (
   method: "session/tokenUsage" | "session/modelChanged",
   modelId: string,
   extra: Record<string, unknown> = {},
-) => ({ method, params: { sessionId: SESSION_ID, modelId, ...extra } });
+) => ({ method, params: { sessionId: SESSION_ID, providerId: "meta", modelId, ...extra } });
 
 function makeMuseImportHost(
   request: MuseSdkHost["connection"]["request"],
@@ -211,7 +211,7 @@ it.layer(NodeServices.layer)("Muse session import", (it) => {
             events: [
               event("u", "userMessage", "first"),
               event("a", "agentMessage", "answer"),
-              modelEvent("session/tokenUsage", "muse-spark-1.2"),
+              modelEvent("session/tokenUsage", "muse-spark-1.2", { providerId: undefined }),
               modelEvent("session/tokenUsage", "muse-spark-1.3-contributor"),
             ],
             nextCursor: null,
@@ -301,6 +301,21 @@ it.layer(NodeServices.layer)("Muse session import", (it) => {
           events: [
             event("u", "userMessage", "first"),
             modelEvent("session/modelChanged", "another-model", { providerId: "other" }),
+          ],
+          nextCursor: null,
+        },
+      ],
+      limits,
+    ],
+    [
+      "foreign provider model usage",
+      [
+        {
+          events: [
+            event("u", "userMessage", "first"),
+            modelEvent("session/tokenUsage", "muse-spark-1.3-contributor", {
+              providerId: "other",
+            }),
           ],
           nextCursor: null,
         },
