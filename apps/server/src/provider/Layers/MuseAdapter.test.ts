@@ -761,6 +761,96 @@ describe("MuseAdapter", () => {
     }).pipe(Effect.provide(testLayer)),
   );
 
+  for (const [scope, decision] of [
+    ["session", "acceptForSession"],
+    ["localPersistent", "acceptAlways"],
+    ["unknown", undefined],
+  ] as const) {
+    it.effect(`maps policy amendments with ${scope} scope without inventing persistence`, () =>
+      Effect.gen(function* () {
+        const fake = makeFakeHost();
+        const adapter = yield* makeMuseAdapter(settings, { createHost: async () => fake.host });
+        yield* adapter.startSession(startInput);
+        const turn = yield* adapter.sendTurn({ threadId, input: "Run tool" });
+        fake.emit("approval/requested", {
+          approvalId: "approval",
+          turnId: turn.turnId,
+          subject: { kind: "shell", command: "ls" },
+          currentRequirementId: { approvalId: "approval", sourceIndex: 0 },
+          availableChoices: [
+            { choiceId: "once", label: "Allow once", decision: "approved", scope: "once" },
+            {
+              choiceId: "policy",
+              label: "Amend policy",
+              decision: "approvedPolicyAmendment",
+              scope,
+            },
+          ],
+        });
+        const opened = yield* collectUntil(adapter, "request.opened");
+        assert.deepEqual(opened.find((event) => event.type === "request.opened")?.payload.options, [
+          { decision: "accept", label: "Allow once" },
+          ...(decision ? [{ decision, label: "Amend policy" }] : []),
+        ]);
+        if (!decision) {
+          const unavailable = yield* Effect.result(
+            adapter.respondToRequest(
+              threadId,
+              requestIdFrom(opened, "request.opened"),
+              "acceptAlways",
+            ),
+          );
+          assert.equal(unavailable._tag, "Failure");
+          assert.isFalse(fake.calls.some((call) => call.method === "approval/decide"));
+        }
+        fake.emit("approval/resolved", {
+          approvalId: "approval",
+          decision: "approvedPolicyAmendment",
+          amendment: { durability: scope },
+        });
+        const resolved = yield* collectUntil(adapter, "request.resolved");
+        assert.deepEqual(resolved.find((event) => event.type === "request.resolved")?.payload, {
+          requestType: "command_execution_approval",
+          ...(decision ? { decision } : {}),
+        });
+      }).pipe(Effect.provide(testLayer)),
+    );
+  }
+
+  for (const durability of ["localPersistent", "unknown", undefined]) {
+    it.effect(`uses resolved amendment durability ${durability} instead of offered choices`, () =>
+      Effect.gen(function* () {
+        const fake = makeFakeHost();
+        const adapter = yield* makeMuseAdapter(settings, { createHost: async () => fake.host });
+        yield* adapter.startSession(startInput);
+        const turn = yield* adapter.sendTurn({ threadId, input: "Run tool" });
+        fake.emit("approval/requested", {
+          approvalId: "approval",
+          turnId: turn.turnId,
+          subject: { kind: "shell", command: "ls" },
+          currentRequirementId: { approvalId: "approval", sourceIndex: 0 },
+          availableChoices: ["session", "localPersistent"].map((scope) => ({
+            choiceId: scope,
+            label: scope,
+            decision: "approvedPolicyAmendment",
+            scope,
+          })),
+        });
+        yield* collectUntil(adapter, "request.opened");
+        fake.emit("approval/resolved", {
+          approvalId: "approval",
+          decision: "approvedPolicyAmendment",
+          ...(durability ? { amendment: { durability } } : {}),
+        });
+        const resolved = yield* collectUntil(adapter, "request.resolved");
+        assert.deepEqual(resolved.find((event) => event.type === "request.resolved")?.payload, {
+          requestType: "command_execution_approval",
+          ...(durability === "localPersistent" ? { decision: "acceptAlways" } : {}),
+        });
+      }).pipe(Effect.provide(testLayer)),
+    );
+  }
+
   it.effect("reissues resumed pending requests with fresh IDs and rejects stale responses", () =>
     Effect.gen(function* () {
       const first = makeFakeHost();

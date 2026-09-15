@@ -46,6 +46,7 @@ import { buildRuntimeInstructions } from "../RuntimeInstructions.ts";
 import type { ProviderAdapterShape } from "../Services/ProviderAdapter.ts";
 import {
   MuseApproval,
+  MuseApprovalResolved,
   MuseCompactResult,
   MuseContextUsage,
   MuseDelta,
@@ -72,7 +73,8 @@ import type { EventNdjsonLogger } from "./EventNdjsonLogger.ts";
 
 const PROVIDER = ProviderDriverKind.make("muse");
 const DEFAULT_MODEL = "muse-spark-1.3-contributor";
-// SDK 0.1.1 omits the CLI's `max` effort; generic commands can forward it unchanged.
+// SDK 0.1.1 types omit `max`, but Muse 1.2.1/1.3.0's exported MSP schemas accept it.
+// Keep it at the generic command boundary, subject to the selected model's catalog tiers.
 const SUPPORTED_EFFORTS = new Set<string>(
   MUSE_REASONING_EFFORT_OPTIONS.map((option) => option.id) satisfies ReadonlyArray<
     NonNullable<SendUserTurnOptions<never>["reasoningEffort"]> | "max"
@@ -84,6 +86,7 @@ const decodeDelta = Schema.decodeUnknownSync(MuseDelta);
 const decodeTurnCompleted = Schema.decodeUnknownSync(MuseTurnCompleted);
 const decodeTurnRetryScheduled = Schema.decodeUnknownSync(MuseTurnRetryScheduled);
 const decodeApproval = Schema.decodeUnknownSync(MuseApproval);
+const decodeApprovalResolved = Schema.decodeUnknownSync(MuseApprovalResolved);
 const decodeUserInput = Schema.decodeUnknownSync(MuseUserInput);
 const decodeUserInputSettled = Schema.decodeUnknownSync(MuseUserInputSettled);
 const decodeTokenUsage = Schema.decodeUnknownSync(MuseTokenUsageEvent);
@@ -803,29 +806,24 @@ export const makeMuseAdapter = Effect.fn("makeMuseAdapter")(function* (
         break;
       }
       case "approval/resolved": {
-        if (typeof params.approvalId !== "string") break;
-        context.active?.settledApprovals.add(params.approvalId);
-        const approval = context.approvals.get(params.approvalId);
+        const resolution = decodeApprovalResolved(params);
+        context.active?.settledApprovals.add(resolution.approvalId);
+        const approval = context.approvals.get(resolution.approvalId);
         if (!approval) break;
-        context.approvals.delete(params.approvalId);
-        if (!context.openedApprovals.delete(params.approvalId)) break;
+        context.approvals.delete(resolution.approvalId);
+        if (!context.openedApprovals.delete(resolution.approvalId)) break;
+        const decision = resolution.decision
+          ? museApprovalDecision({
+              decision: resolution.decision,
+              scope: resolution.amendment?.durability ?? "",
+            })
+          : undefined;
         emit(context, {
           type: "request.resolved",
-          requestId: runtimeRequestId(context, params.approvalId),
+          requestId: runtimeRequestId(context, resolution.approvalId),
           payload: {
             requestType: museRequestType(approval),
-            ...(typeof params.decision === "string"
-              ? {
-                  decision:
-                    museApprovalDecision({
-                      decision: params.decision,
-                      scope:
-                        approval.availableChoices.find(
-                          (choice) => choice.decision === params.decision,
-                        )?.scope ?? "",
-                    }) ?? params.decision,
-                }
-              : {}),
+            ...(decision ? { decision } : {}),
           },
           raw,
         });

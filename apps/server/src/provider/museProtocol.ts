@@ -106,6 +106,11 @@ export const MuseApproval = Schema.Struct({
   }),
 });
 export type MuseApproval = typeof MuseApproval.Type;
+export const MuseApprovalResolved = Schema.Struct({
+  approvalId: NonEmptyString,
+  decision: Schema.optional(Schema.String),
+  amendment: Schema.optional(Schema.Struct({ durability: Schema.String })),
+});
 
 export const MuseUserInput = Schema.Struct({
   userInputId: NonEmptyString,
@@ -226,7 +231,9 @@ export function museApprovalDecision(
     case "approvedForSession":
       return "acceptForSession";
     case "approvedPolicyAmendment":
-      return choice.scope === "session" ? "acceptForSession" : "acceptAlways";
+      if (choice.scope === "session") return "acceptForSession";
+      if (choice.scope === "localPersistent") return "acceptAlways";
+      return undefined;
     case "denied":
     case "deniedPolicyAmendment":
       return "decline";

@@ -70,7 +70,8 @@ const decodeApproval = Schema.decodeUnknownSync(ApprovalRequested);
 const decodeUserInput = Schema.decodeUnknownSync(UserInputRequested);
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const decodeJson = Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown));
-// SDK 0.1.1 omits the CLI's `max` effort; generic commands can forward it unchanged.
+// SDK 0.1.1 types omit `max`, but Muse 1.2.1/1.3.0's exported MSP schemas accept it.
+// Keep it at the generic command boundary, subject to the selected model's catalog tiers.
 const SUPPORTED_EFFORTS = new Set<string>(
   MUSE_REASONING_EFFORT_OPTIONS.map((option) => option.id) satisfies ReadonlyArray<
     NonNullable<SendUserTurnOptions<never>["reasoningEffort"]> | "max"
