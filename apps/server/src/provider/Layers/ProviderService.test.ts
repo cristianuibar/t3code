@@ -19,6 +19,7 @@ import {
   EnvironmentId,
   EventId,
   MessageId,
+  MuseSettings,
   OrchestrationThreadShell,
   ProjectId,
   PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
@@ -65,6 +66,7 @@ import * as ProviderAdapterRegistry from "../Services/ProviderAdapterRegistry.ts
 import * as ProviderService from "../Services/ProviderService.ts";
 import * as ProviderSessionDirectory from "../Services/ProviderSessionDirectory.ts";
 import { makeProviderServiceLive } from "./ProviderService.ts";
+import { makeMuseAdapter } from "./MuseAdapter.ts";
 import * as ProviderEventLoggers from "./ProviderEventLoggers.ts";
 import { ProviderSessionDirectoryLive } from "./ProviderSessionDirectory.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -80,6 +82,7 @@ import { makeAdapterRegistryMock } from "../testUtils/providerAdapterRegistryMoc
 import * as ProjectionSnapshotQuery from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const museSettings = Schema.decodeSync(MuseSettings)({ enabled: true });
 const defaultServerSettingsLayer = ServerSettings.ServerSettingsService.layerTest();
 const serverConfigTestLayer = ServerConfig.layerTest(process.cwd(), process.cwd()).pipe(
   Layer.provide(NodeServices.layer),
@@ -1179,6 +1182,66 @@ antigravityInstanceRouting.layer("ProviderServiceLive instance-owned conversatio
       }),
   );
 });
+
+it.effect("rejects Muse rewind before recovering or changing its persisted conversation", () =>
+  Effect.gen(function* () {
+    const instanceId = ProviderInstanceId.make("muse");
+    const threadId = asThreadId("muse-unsupported-rewind");
+    const createHost = vi.fn(async () => {
+      throw new Error("Rewind must not start a Muse host.");
+    });
+    const adapter = yield* makeMuseAdapter(museSettings, {
+      instanceId,
+      createHost,
+    });
+    const directoryLayer = ProviderSessionDirectoryLive.pipe(
+      Layer.provide(ProviderSessionRuntime.layer.pipe(Layer.provide(SqlitePersistenceMemory))),
+    );
+    const providerLayer = makeProviderServiceLive().pipe(
+      Layer.provide(NodeServices.layer),
+      Layer.provide(
+        Layer.succeed(
+          ProviderAdapterRegistry.ProviderAdapterRegistry,
+          makeStaticInstanceRegistry([[instanceId, adapter]]),
+        ),
+      ),
+      Layer.provideMerge(directoryLayer),
+      Layer.provide(defaultServerSettingsLayer),
+      Layer.provide(serverConfigTestLayer),
+      Layer.provide(AnalyticsService.layerTest),
+      Layer.provide(
+        Layer.succeed(
+          ProviderEventLoggers.ProviderEventLoggers,
+          ProviderEventLoggers.NoOpProviderEventLoggers,
+        ),
+      ),
+    );
+    yield* Effect.gen(function* () {
+      const provider = yield* ProviderService.ProviderService;
+      const directory = yield* ProviderSessionDirectory.ProviderSessionDirectory;
+      yield* directory.upsert({
+        threadId,
+        provider: ProviderDriverKind.make("muse"),
+        providerInstanceId: instanceId,
+        status: "stopped",
+        runtimeMode: "approval-required",
+        resumeCursor: { sessionId: "native-muse-conversation" },
+      });
+      const originalBinding = yield* directory.getBinding(threadId);
+      const preflightError = yield* Effect.flip(
+        provider.assertConversationRollbackSupported(threadId),
+      );
+      const rollbackError = yield* Effect.flip(
+        provider.rollbackConversation({ threadId, numTurns: 1 }),
+      );
+      assert.instanceOf(preflightError, ProviderValidationError);
+      assert.instanceOf(rollbackError, ProviderValidationError);
+      assert.include(preflightError.message, "does not support conversation rewind");
+      assert.equal(createHost.mock.calls.length, 0);
+      assert.deepEqual(yield* directory.getBinding(threadId), originalBinding);
+    }).pipe(Effect.provide(providerLayer));
+  }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(serverConfigTestLayer, NodeServices.layer))),
+);
 
 const unsupportedRollback = makeProviderServiceLayer({ supportsConversationRollback: false });
 unsupportedRollback.layer("ProviderServiceLive unsupported rewind", (it) => {

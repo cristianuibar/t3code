@@ -59,11 +59,8 @@ Web and desktop also offer **Compact context** from the context meter. Muse may
 decline compaction when there is nothing to summarize or the session cannot be
 compacted; you can continue chatting afterward.
 
-**Revert to this message** rewinds Muse's conversation along with T3 Code's
-checkpoint. Muse keeps the original conversation and continues from a copy at
-the selected point. Stop an active turn before reverting. Muse may reject a
-point whose failed or interrupted turn was not committed, such as a failed
-sign-in attempt.
+Conversation rewind is currently unavailable for Muse. **Revert to this message**
+leaves your files and conversation unchanged and reports that rewind is unsupported.
 
 If Muse reports lost event updates, resume to continue working. Muse retains its
 saved conversation, but missing updates are not restored in the T3 Code chat.

@@ -1166,7 +1166,11 @@ export const makeMuseAdapter = Effect.fn("makeMuseAdapter")(function* (
 
   const adapter: ProviderAdapterShape<ProviderAdapterError> = {
     provider: PROVIDER,
-    capabilities: { sessionModelSwitch: "in-session", supportsConversationRollback: true },
+    capabilities: {
+      sessionModelSwitch: "in-session",
+      // Muse 1.2.1/1.3.0 reject completed turn IDs as explicit fork boundaries with InvalidCut.
+      supportsConversationRollback: false,
+    },
     startSession: (input) => withThreadLock(input.threadId, startSession(input)),
     sendTurn: (input) =>
       withThreadLock(
