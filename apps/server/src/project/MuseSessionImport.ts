@@ -257,6 +257,8 @@ export const makeMuseSessionImport = Effect.fn("makeMuseSessionImport")(function
           continue;
         }
         if (event.method === "session/tokenUsage") {
+          if (event.params.providerId !== undefined && event.params.providerId !== "meta")
+            return yield* new MuseImportError({ detail: "Muse model usage is unavailable." });
           if (event.params.modelId) observedModelId = event.params.modelId;
           continue;
         }
