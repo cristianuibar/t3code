@@ -306,9 +306,7 @@ export const makeMuseSessionImport = Effect.fn("makeMuseSessionImport")(function
           "Muse history does not identify its effective model. Complete a turn in Muse Code before importing.",
       });
     const recent = messages.slice(-limits.messages);
-    const retained = recent.includes(firstUser)
-      ? recent
-      : [firstUser, ...recent.slice(-(limits.messages - 1))];
+    const retained = recent.includes(firstUser) ? recent : [firstUser, ...recent.slice(1)];
     return {
       session: { ...read.session, modelId },
       messages: retained,

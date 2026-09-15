@@ -178,6 +178,31 @@ it.layer(NodeServices.layer)("Muse session import", (it) => {
       }),
   );
 
+  it.effect("retains only the first prompt when the message budget is one", () =>
+    Effect.gen(function* () {
+      const host = historyHost([
+        {
+          events: [
+            event("u1", "userMessage", "first prompt"),
+            event("a1", "agentMessage", "first answer"),
+            event("u2", "userMessage", "latest prompt"),
+            event("a2", "agentMessage", "latest answer"),
+            modelEvent("session/tokenUsage", "muse-spark-1.3-contributor"),
+          ],
+          nextCursor: null,
+        },
+      ]);
+      const result = yield* Effect.scoped(
+        Effect.gen(function* () {
+          const reader = yield* makeMuseSessionImport(async () => host);
+          return yield* reader.read(instance, SESSION_ID, { ...limits, messages: 1 });
+        }),
+      );
+      expect(result.messages.map((message) => message.text)).toEqual(["first prompt"]);
+      expect(result.title).toBe("first prompt");
+    }),
+  );
+
   it.effect("uses effective Contributor usage instead of normalized base-model metadata", () =>
     Effect.gen(function* () {
       const host = historyHost(
