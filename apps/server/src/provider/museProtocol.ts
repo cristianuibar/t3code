@@ -226,7 +226,11 @@ export function museApprovalDecision(
     case "approvedForSession":
       return "acceptForSession";
     case "approvedPolicyAmendment":
-      return choice.scope === "session" ? "acceptForSession" : "acceptAlways";
+      return choice.scope === "session"
+        ? "acceptForSession"
+        : choice.scope === "localPersistent"
+          ? "acceptAlways"
+          : undefined;
     case "denied":
     case "deniedPolicyAmendment":
       return "decline";
