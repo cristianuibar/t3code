@@ -778,11 +778,9 @@ describe("MuseAdapterV2", () => {
         assert.strictEqual(lastItem.turnItem.status, "failed");
         assert.isNotNull(lastItem.turnItem.completedAt);
         assert.strictEqual(lastItem.turnItem.runId, started.turnItem.runId);
-        const childNode = harness.allEvents
-          .filter(
-            (event) => event.type === "node.updated" && event.node.id === started.turnItem.nodeId,
-          )
-          .at(-1);
+        const childNode = harness.allEvents.findLast(
+          (event) => event.type === "node.updated" && event.node.id === started.turnItem.nodeId,
+        );
         assert.strictEqual(childNode?.type, "node.updated");
         if (childNode?.type !== "node.updated") return;
         assert.strictEqual(childNode.node.status, "failed");
