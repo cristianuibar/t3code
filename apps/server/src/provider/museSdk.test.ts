@@ -40,20 +40,23 @@ afterEach(() => {
 });
 
 describe("Muse SDK host", () => {
-  it("excludes META_API_KEY without reading its value or mutating the supplied environment", () => {
-    const source: NodeJS.ProcessEnv = { PATH: "/bin", MUSE_TEST: "yes" };
-    const read = vi.fn(() => {
-      throw new Error("The API override must not be read.");
-    });
-    Object.defineProperty(source, "META_API_KEY", { enumerable: true, get: read });
-    expect(makeMuseEnvironment(source)).toEqual({
-      PATH: "/bin",
-      MUSE_TEST: "yes",
-      MUSE_NO_AUTO_UPDATE: "1",
-    });
-    expect(read).not.toHaveBeenCalled();
-    expect(Object.keys(source)).toContain("META_API_KEY");
-  });
+  it.each(["META_API_KEY", "meta_api_key", "Meta_Api_Key"])(
+    "excludes %s without reading its value or mutating the supplied environment",
+    (key) => {
+      const source: NodeJS.ProcessEnv = { PATH: "/bin", MUSE_TEST: "yes" };
+      const read = vi.fn(() => {
+        throw new Error("The API override must not be read.");
+      });
+      Object.defineProperty(source, key, { enumerable: true, get: read });
+      expect(makeMuseEnvironment(source)).toEqual({
+        PATH: "/bin",
+        MUSE_TEST: "yes",
+        MUSE_NO_AUTO_UPDATE: "1",
+      });
+      expect(read).not.toHaveBeenCalled();
+      expect(Object.keys(source)).toContain(key);
+    },
+  );
 
   it("selects full access explicitly and keeps other runtime modes sandboxed", async () => {
     for (const mode of ["approval-required", "auto-accept-edits", "auto", "full-access"] as const) {
