@@ -45,7 +45,7 @@ export function makeMuseEnvironment(
   return {
     ...Object.fromEntries(
       Object.keys(environment)
-        .filter((key) => key !== "META_API_KEY")
+        .filter((key) => key.toUpperCase() !== "META_API_KEY")
         .map((key) => [key, environment[key]]),
     ),
     MUSE_NO_AUTO_UPDATE: "1",
