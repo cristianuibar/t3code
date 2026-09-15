@@ -127,8 +127,8 @@ export const MuseProviderCapabilitiesV2 = {
   threads: {
     canCreateEmptyThread: true,
     canReadThreadSnapshot: true,
-    // Muse 1.1.1 native forks can lose the effective Contributor model. Until
-    // that is fixed upstream, public forks use V2's portable context handoff.
+    // Muse 1.2.1/1.3.0 reject tested completed-turn fork boundaries with InvalidCut.
+    // Public forks use portable context handoff until native boundaries are validated.
     canRollbackThread: false,
     canForkThread: false,
     canForkFromTurn: false,
@@ -1438,6 +1438,8 @@ export function makeMuseAdapterV2(options: MuseAdapterV2Options): ProviderAdapte
             museModelCapabilities(selection.model),
           selected ?? "max",
         );
+        // SDK 0.1.1 types omit `max`, but Muse 1.2.1/1.3.0's exported MSP schemas accept it.
+        // Generic commands preserve the selected effort unchanged.
         if (effort && !["low", "medium", "high", "xhigh", "max"].includes(effort))
           return yield* protocolError(`Muse SDK does not support '${effort}' reasoning effort`);
         return effort;
