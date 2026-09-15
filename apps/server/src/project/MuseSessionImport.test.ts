@@ -212,8 +212,10 @@ it.layer(NodeServices.layer)("Muse session import", (it) => {
             events: [
               event("u", "userMessage", "first"),
               event("a", "agentMessage", "answer"),
-              modelEvent("session/tokenUsage", "muse-spark-1.2"),
-              modelEvent("session/tokenUsage", "muse-spark-1.3-contributor"),
+              modelEvent("session/tokenUsage", "muse-spark-1.2", { providerId: "meta" }),
+              modelEvent("session/tokenUsage", "muse-spark-1.3-contributor", {
+                providerId: "meta",
+              }),
             ],
             nextCursor: null,
           },
@@ -295,6 +297,22 @@ it.layer(NodeServices.layer)("Muse session import", (it) => {
       ],
       limits,
     ],
+    ...["other", null].map(
+      (providerId) =>
+        [
+          `model usage from provider ${providerId}`,
+          [
+            {
+              events: [
+                event("u", "userMessage", "first"),
+                modelEvent("session/tokenUsage", "muse-spark-1.3-contributor", { providerId }),
+              ],
+              nextCursor: null,
+            },
+          ],
+          limits,
+        ] as const,
+    ),
     [
       "foreign model provider",
       [
