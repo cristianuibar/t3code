@@ -39,7 +39,12 @@ import {
   type ProviderAdapterV2Event,
   type ProviderAdapterV2TurnInput,
 } from "../ProviderAdapter.ts";
-import { makeMuseAdapterV2, MUSE_PROVIDER, type MuseAdapterV2Options } from "./MuseAdapterV2.ts";
+import {
+  makeMuseAdapterV2,
+  MUSE_PROVIDER,
+  MuseProviderCapabilitiesV2,
+  type MuseAdapterV2Options,
+} from "./MuseAdapterV2.ts";
 
 const testLayer = Layer.mergeAll(
   NodeServices.layer,
@@ -1571,6 +1576,8 @@ describe("MuseAdapterV2", () => {
             event.plan.status === "completed",
         ),
       );
+      assert.isTrue(MuseProviderCapabilitiesV2.planning.emitsPlanUpdated);
+      assert.isTrue(MuseProviderCapabilitiesV2.planning.emitsTodoList);
     }).pipe(Effect.scoped, Effect.provide(testLayer)),
   );
 
